@@ -9,8 +9,9 @@ DEBUG = True  # Enable or disable printing debug information to terminal
 MESSAGES_DELAY = 0.05  # Time to wait after spam message sent
 START_RAID_AFTER_CERTAIN_MESSAGE = True  # Start raid only after sending a message like "@bot_nick start" to chat
 PREFIX_MESSAGE = "test prefix"
-SENDER_ACCEPTED_ID = 1
-
+SENDER_ACCEPTED_ID = 537370220
+USER_ACCESS_TOKEN = ""
+CONST_USER_PEERS_START = 2000000000
 
 with open("text.txt") as fd:
     TEXT = fd.readlines()
@@ -39,10 +40,15 @@ def raid(chat_id, curr_vk_session, bot_id):
     stopped_bots += 1
 
 
+
+joiner_api = vk_api.VkApi(token=USER_ACCESS_TOKEN)
+joiner_api._auth_token()
+joiner_api.get_api()
+
 stop_event = False
 stopped_bots = 0
 def spawn_bot(API_TOKEN, GROUP_ID, bot_id):
-    global stopped_bots, stop_event
+    global stopped_bots, stop_event, bots
     vk = vk_api.VkApi(token=API_TOKEN)
     vk._auth_token()
     vk.get_api()
@@ -61,8 +67,9 @@ def spawn_bot(API_TOKEN, GROUP_ID, bot_id):
                         elif cmd == "/":
                             vk.method("messages.send", {"peer_id": event.object.message["peer_id"], "message": '''Команды ботнета:
                                     start - запуск
-                                    stop - остановка''', "random_id": 0})
-                        elif cmd in ["stop", "/stop"]:
+                                    stop - остановка
+                                    join USER_PEER_ID - добавить бота в беседу''', "random_id": 0})
+                        elif "stop" in cmd:
                             stopped_bots = 0
                             stop_event = True
                             print("Waiting for bots to stop...")
@@ -71,6 +78,26 @@ def spawn_bot(API_TOKEN, GROUP_ID, bot_id):
                                 pass
                             print("All bots stoppped!")
                             stop_event = False
+                        elif "join" in cmd:
+                            try:
+                                invite_id = int(cmd.split()[-1].strip())
+                                print("Try to invite to ", invite_id)
+                                for bot in bots:
+                                    bot_id = bot[1]
+                                    print(bot_id)
+                                    try:
+                                        joiner_api.method("bot.addBotToChat", {"peer_id": CONST_USER_PEERS_START + invite_id, "bot_id": -bot_id})
+                                        vk.method("messages.send", {"peer_id": event.object.message["peer_id"], "message": f"Бот {bot_id} зашёл в беседу", "random_id": 0})
+                                    except Exception as e:
+                                        print(e)
+                                    time.sleep(2)
+                                
+                            except ValueError:
+                                
+                                vk.method("messages.send", {"peer_id": event.object.message["peer_id"], "message": '''Некорректный peer_id''', "random_id": 0})
+
+                            
+
 
 bots = config.bots
 print(gen_start_message(bots))
